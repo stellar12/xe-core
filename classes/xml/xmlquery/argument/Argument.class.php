@@ -1,8 +1,9 @@
 <?php
+/* Copyright (C) NAVER <http://www.navercorp.com> */
 
 /**
  * Argument class
- * @author NHN (developers@xpressengine.com)
+ * @author NAVER (developers@xpressengine.com)
  * @package /classes/xml/xmlquery/argument
  * @version 0.1
  */
@@ -182,12 +183,10 @@ class Argument
 			}
 			else
 			{
-				$total = count($value);
-				for($i = 0; $i < $total; $i++)
+				foreach($value as $key=>$val)
 				{
-					$value[$i] = $this->_escapeStringValue($value[$i]);
+					$value[$key] = $this->_escapeStringValue($val);
 				}
-				//$value[$i] = '\''.$value[$i].'\'';
 			}
 		}
 		if($this->uses_default_value)
@@ -285,7 +284,7 @@ class Argument
 
 	function ensureDefaultValue($default_value)
 	{
-		if(!isset($this->value) || $this->value == '')
+		if($this->value === NULL || $this->value === '')
 		{
 			$this->value = $default_value;
 			$this->uses_default_value = TRUE;

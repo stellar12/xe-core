@@ -1,8 +1,9 @@
 <?php
+/* Copyright (C) NAVER <http://www.navercorp.com> */
 
 /**
  * Model class of the autoinstall module
- * @author NHN (developers@xpressengine.com)
+ * @author NAVER (developers@xpressengine.com)
  */
 class autoinstallAdminModel extends autoinstall
 {
@@ -315,7 +316,7 @@ class autoinstallAdminModel extends autoinstall
 				}
 			}
 
-			$installedPackage = $oModel->getInstalledPackage($package_srl);
+			$installedPackage = $oModel->getInstalledPackage($packageSrl);
 			if($installedPackage)
 			{
 				$package->installed = TRUE;
@@ -345,6 +346,61 @@ class autoinstallAdminModel extends autoinstall
 
 		$package = $this->getInstallInfo($packageSrl);
 		$this->add('package', $package);
+	}
+
+	public function checkUseDirectModuleInstall($package)
+	{
+		$directModuleInstall = TRUE;
+		$arrUnwritableDir = array();
+		$output = $this->isWritableDir($package->path);
+		if($output->toBool()==FALSE)
+		{
+			$directModuleInstall = FALSE;
+			$arrUnwritableDir[] = $output->get('path');
+		}
+
+		foreach($package->depends as $dep)
+		{
+			$output = $this->isWritableDir($dep->path);
+			if($output->toBool()==FALSE)
+			{
+				$directModuleInstall = FALSE;
+				$arrUnwritableDir[] = $output->get('path');
+			}
+		}
+
+		if($directModuleInstall==FALSE)
+		{
+			$output = new Object(-1, 'msg_direct_inall_invalid');
+			$output->add('path', $arrUnwritableDir);
+			return $output;
+		}
+
+		return new Object();
+	}
+
+	public function isWritableDir($path)
+	{
+		$path_list = explode('/', dirname($path));
+		$real_path = './';
+
+		while($path_list)
+		{
+			$check_path = realpath($real_path . implode('/', $path_list));
+			if(FileHandler::isDir($check_path))
+			{
+				break;
+			}
+			array_pop($path_list);
+		}
+
+		if(FileHandler::isWritableDir($check_path)==FALSE)
+		{
+			$output = new Object(-1, 'msg_unwritable_directory');
+			$output->add('path', FileHandler::getRealPath($check_path));
+			return $output;
+		}
+		return new Object();
 	}
 
 }

@@ -1,9 +1,10 @@
 <?php
+/* Copyright (C) NAVER <http://www.navercorp.com> */
 
 /**
  * Every modules inherits from Object class. It includes error, message, and other variables for communicatin purpose.
  *
- * @author NHN (developers@xpressengine.com)
+ * @author NAVER (developers@xpressengine.com)
  */
 class Object
 {
@@ -95,9 +96,14 @@ class Object
 	 */
 	function setMessage($message = 'success')
 	{
-		if(Context::getLang($message))
-			$message = Context::getLang($message);
-		$this->message = $message;
+		if($str = Context::getLang($message))
+		{
+			$this->message = $str;
+		}
+		else
+		{
+			$this->message = $message;
+		}
 
 		// TODO This method always returns True. We'd better remove it
 		return TRUE;
@@ -159,18 +165,17 @@ class Object
 	}
 
 	/**
-	 * Method to retrieve an object containing a key/value paris
+	 * Method to retrieve an object containing a key/value pairs
 	 *
 	 * @return Object Returns an object containing key/value pairs
 	 */
 	function gets()
 	{
-		$num_args = func_num_args();
-		$args_list = func_get_args();
-		for($i = 0; $i < $num_args; $i++)
+		$args = func_get_args();
+		$output = new stdClass();
+		foreach($args as $arg)
 		{
-			$key = $args_list[$i];
-			$output->{$key} = $this->get($key);
+			$output->{$arg} = $this->get($arg);
 		}
 		return $output;
 	}
@@ -208,7 +213,7 @@ class Object
 	function toBool()
 	{
 		// TODO This method is misleading in that it returns true if error is 0, which should be true in boolean representation.
-		return $this->error == 0 ? TRUE : FALSE;
+		return ($this->error == 0);
 	}
 
 	/**

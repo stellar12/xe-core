@@ -1,8 +1,9 @@
 <?php
+/* Copyright (C) NAVER <http://www.navercorp.com> */
 
 /**
  * @class  communicationAdminView
- * @author NHN (developers@xpressengine.com)
+ * @author NAVER (developers@xpressengine.com)
  * communication module of the admin view class
  */
 class communicationAdminView extends communication
@@ -56,6 +57,10 @@ class communicationAdminView extends communication
 		$security->encodeHTML('editor_skin_list..');
 		$security->encodeHTML('communication_skin_list..title');
 		$security->encodeHTML('communication_mobile_skin_list..title');
+
+		$oMemberModel = getModel('member');
+		$group_list = $oMemberModel->getGroups($this->site_srl);
+		Context::set('group_list', $group_list);
 
 		// specify a template
 		$this->setTemplatePath($this->module_path . 'tpl');

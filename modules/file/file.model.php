@@ -1,7 +1,8 @@
 <?php
+/* Copyright (C) NAVER <http://www.navercorp.com> */
 /**
  * Model class of the file module
- * @author NHN (developers@xpressengine.com)
+ * @author NAVER (developers@xpressengine.com)
  */
 class fileModel extends file
 {
@@ -23,7 +24,7 @@ class fileModel extends file
 	 */
 	function getFileList()
 	{
-		$oModuleModel = &getModel('module');
+		$oModuleModel = getModel('module');
 
 		$mid = Context::get('mid');
 		$editor_sequence = Context::get('editor_sequence');
@@ -40,12 +41,12 @@ class fileModel extends file
 				$file_info = $tmp_files[$i];
 				if(!$file_info->file_srl) continue;
 
-				$obj = null;
+				$obj = new stdClass;
 				$obj->file_srl = $file_info->file_srl;
 				$obj->source_filename = $file_info->source_filename;
 				$obj->file_size = $file_info->file_size;
 				$obj->disp_file_size = FileHandler::filesize($file_info->file_size);
-				if($file_info->direct_download=='N') $obj->download_url = $this->getDownloadUrl($file_info->file_srl, $file_info->sid);
+				if($file_info->direct_download=='N') $obj->download_url = $this->getDownloadUrl($file_info->file_srl, $file_info->sid, $file_info->module_srl);
 				else $obj->download_url = str_replace('./', '', $file_info->uploaded_filename);
 				$obj->direct_download = $file_info->direct_download;
 				$files[] = $obj;
@@ -94,9 +95,9 @@ class fileModel extends file
 	 * @param string $sid
 	 * @return string Returns a url
 	 */
-	function getDownloadUrl($file_srl, $sid)
+	function getDownloadUrl($file_srl, $sid, $module_srl="")
 	{
-		return sprintf('?module=%s&amp;act=%s&amp;file_srl=%s&amp;sid=%s', 'file', 'procFileDownload', $file_srl, $sid);
+		return sprintf('?module=%s&amp;act=%s&amp;file_srl=%s&amp;sid=%s&amp;module_srl=%s', 'file', 'procFileDownload', $file_srl, $sid, $module_srl);
 	}
 
 	/**
@@ -108,7 +109,7 @@ class fileModel extends file
 	function getFileConfig($module_srl = null)
 	{
 		// Get configurations (using module model object)
-		$oModuleModel = &getModel('module');
+		$oModuleModel = getModel('module');
 
 		$file_module_config = $oModuleModel->getModuleConfig('file');
 
@@ -116,7 +117,7 @@ class fileModel extends file
 		if(!$file_config) $file_config = $file_module_config;
 
 		$config = new stdClass();
-		
+
 		if($file_config)
 		{
 			$config->allowed_filesize = $file_config->allowed_filesize;
@@ -163,7 +164,7 @@ class fileModel extends file
 		if(count($output->data) == 1)
 		{
 			$file = $output->data[0];
-			$file->download_url = $this->getDownloadUrl($file->file_srl, $file->sid);
+			$file->download_url = $this->getDownloadUrl($file->file_srl, $file->sid, $file->module_srl);
 
 			return $file;
 		}
@@ -176,8 +177,8 @@ class fileModel extends file
 				foreach($output->data as $key=>$value)
 				{
 					$file = $value;
-					$file->download_url = $this->getDownloadUrl($file->file_srl, $file->sid);
-					array_push($fileList, $file);
+					$file->download_url = $this->getDownloadUrl($file->file_srl, $file->sid, $file->module_srl);
+					$fileList[] = $file;
 				}
 			}
 			return $fileList;
@@ -210,7 +211,7 @@ class fileModel extends file
 		{
 			$file = $file_list[$i];
 			$file->source_filename = stripslashes($file->source_filename);
-			$file->download_url = $this->getDownloadUrl($file->file_srl, $file->sid);
+			$file->download_url = $this->getDownloadUrl($file->file_srl, $file->sid, $file->module_srl);
 			$file_list[$i] = $file;
 		}
 
@@ -225,23 +226,22 @@ class fileModel extends file
 	function getUploadConfig()
 	{
 		$logged_info = Context::get('logged_info');
-		$file_config = new stdClass();
+
+		$module_srl = Context::get('module_srl');
+		// Get the current module if module_srl doesn't exist
+		if(!$module_srl)
+		{
+			$current_module_info = Context::get('current_module_info');
+			$module_srl = $current_module_info->module_srl;
+		}
+		$file_config = $this->getFileConfig($module_srl);
+
 		if($logged_info->is_admin == 'Y')
 		{
-			$file_config->allowed_filesize = preg_replace("/[a-z]/is","",ini_get('upload_max_filesize'));
-			$file_config->allowed_attach_size = preg_replace("/[a-z]/is","",ini_get('upload_max_filesize'));
+			$size = preg_replace('/[a-z]/is', '', ini_get('upload_max_filesize'));
+			$file_config->allowed_attach_size = $size;
+			$file_config->allowed_filesize = $size;
 			$file_config->allowed_filetypes = '*.*';
-		}
-		else
-		{
-			$module_srl = Context::get('module_srl');
-			// Get the current module if module_srl doesn't exist
-			if(!$module_srl)
-			{
-				$current_module_info = Context::get('current_module_info');
-				$module_srl = $current_module_info->module_srl;
-			}
-			$file_config = $this->getFileConfig($module_srl);
 		}
 		return $file_config;
 	}
@@ -297,12 +297,12 @@ class fileModel extends file
 			return $file_grant;
 		}
 
-		$oModuleModel = &getModel('module');
+		$oModuleModel = getModel('module');
 		$grant = $oModuleModel->getGrant($oModuleModel->getModuleInfoByModuleSrl($file_info->module_srl), $member_info);
 
-		$oDocumentModel = &getModel('document');
+		$oDocumentModel = getModel('document');
 		$oDocument = $oDocumentModel->getDocument($file_info->upload_target_srl);
-		if($oDocument->isExists()) $document_grant = $oDocument->isGranted(); 
+		if($oDocument->isExists()) $document_grant = $oDocument->isGranted();
 
 		$file_grant->is_deletable = ($document_grant || $member_info->is_admin == 'Y' || $member_info->member_srl == $file_info->member_srl || $grant->manager);
 

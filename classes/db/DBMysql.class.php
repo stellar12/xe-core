@@ -1,4 +1,5 @@
 <?php
+/* Copyright (C) NAVER <http://www.navercorp.com> */
 
 /**
  * Class to use MySQL DBMS
@@ -6,7 +7,7 @@
  *
  * Does not use prepared statements, since mysql driver does not support them
  *
- * @author NHN (developers@xpressengine.com)
+ * @author NAVER (developers@xpressengine.com)
  * @package /classes/db
  * @version 0.1
  */
@@ -58,20 +59,6 @@ class DBMysql extends DB
 	}
 
 	/**
-	 * Return if supportable
-	 * Check 'mysql_connect' function exists.
-	 * @return boolean
-	 */
-	function isSupported()
-	{
-		if(!function_exists('mysql_connect'))
-		{
-			return false;
-		}
-		return true;
-	}
-
-	/**
 	 * DB Connect
 	 * this method is private
 	 * @param array $connection connection's value is db_hostname, db_port, db_database, db_userid, db_password
@@ -98,9 +85,9 @@ class DBMysql extends DB
 			return;
 		}
 		// Error appears if the version is lower than 4.1
-		if(mysql_get_server_info($result) < "4.1")
+		if(version_compare(mysql_get_server_info($result), '4.1', '<'))
 		{
-			$this->setError(-1, "XE cannot be installed under the version of mysql 4.1. Current mysql version is " . mysql_get_server_info());
+			$this->setError(-1, 'XE cannot be installed under the version of mysql 4.1. Current mysql version is ' . mysql_get_server_info());
 			return;
 		}
 		// select db
@@ -595,11 +582,15 @@ class DBMysql extends DB
 	function _executeUpdateAct($queryObject, $with_values = true)
 	{
 		$query = $this->getUpdateSql($queryObject, $with_values, true);
-		$query .= (__DEBUG_QUERY__ & 1 && $this->query_id) ? sprintf(' ' . $this->comment_syntax, $this->query_id) : '';
 		if(is_a($query, 'Object'))
 		{
-			return;
+			if(!$query->toBool()) return $query;
+			else return;
 		}
+
+		$query .= (__DEBUG_QUERY__ & 1 && $this->query_id) ? sprintf(' ' . $this->comment_syntax, $this->query_id) : '';
+
+
 		return $this->_query($query);
 	}
 
@@ -750,7 +741,7 @@ class DBMysql extends DB
 
 		// Check for distinct query and if found update count query structure
 		$temp_select = $queryObject->getSelectString($with_values);
-		$uses_distinct = strpos(strtolower($temp_select), "distinct") !== false;
+		$uses_distinct = stripos($temp_select, "distinct") !== false;
 		$uses_groupby = $queryObject->getGroupByString() != '';
 		if($uses_distinct || $uses_groupby)
 		{
@@ -883,5 +874,8 @@ class DBMysql extends DB
 	}
 
 }
+
+DBMysql::$isSupported = function_exists('mysql_connect');
+
 /* End of file DBMysql.class.php */
 /* Location: ./classes/db/DBMysql.class.php */

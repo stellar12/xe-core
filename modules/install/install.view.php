@@ -1,7 +1,8 @@
 <?php
+/* Copyright (C) NAVER <http://www.navercorp.com> */
 /**
  * @class  installView
- * @author NHN (developers@xpressengine.com)
+ * @author NAVER (developers@xpressengine.com)
  * @brief View class of install module
  */
 class installView extends install
@@ -20,7 +21,7 @@ class installView extends install
 		// Error occurs if already installed
 		if(Context::isInstalled()) return $this->stop('msg_already_installed');
 		// Install a controller
-		$oInstallController = &getController('install');
+		$oInstallController = getController('install');
 		$this->install_enable = $oInstallController->checkInstallEnv();
 		// If the environment is installable, execute installController::makeDefaultDirectory()
 		if($this->install_enable) $oInstallController->makeDefaultDirectory();
@@ -34,6 +35,27 @@ class installView extends install
 		$install_config_file = FileHandler::getRealPath('./config/install.config.php');
 		if(file_exists($install_config_file))
 		{
+			/**
+			 * If './config/install.config.php' file created  and write array shown in the example below, XE installed using config file.
+			 * ex )
+			  $install_config = array(
+			  'db_type' =>'mysqli_innodb',
+			  'db_port' =>'3306',
+			  'db_hostname' =>'localhost',
+			  'db_userid' =>'root',
+			  'db_password' =>'root',
+			  'db_database' =>'xe_database',
+			  'db_table_prefix' =>'xe',
+			  'user_rewrite' =>'N',
+			  'time_zone' =>'0000',
+			  'email_address' =>'admin@xe.com',
+			  'password' =>'pass',
+			  'password2' =>'pass',
+			  'nick_name' =>'admin',
+			  'user_id' =>'admin',
+			  'lang_type' =>'ko',	// en, jp, ...
+			  );
+			 */
 			include $install_config_file;
 			if(is_array($install_config))
 			{
@@ -44,7 +66,7 @@ class installView extends install
 				}
 				unset($GLOBALS['__DB__']);
 				Context::set('install_config', true, true);
-				$oInstallController = &getController('install');
+				$oInstallController = getController('install');
 				$output = $oInstallController->procInstall();
 				if (!$output->toBool()) return $output;
 				header("location: ./");
@@ -62,10 +84,14 @@ class installView extends install
 	 */
 	function dispInstallCheckEnv()
 	{
-		$useRewrite = $this->useRewriteModule() ? 'Y' : 'N';
+		$oInstallController = getController('install');
+		$useRewrite = $oInstallController->checkRewriteUsable() ? 'Y' : 'N';
 		$_SESSION['use_rewrite'] = $useRewrite;
 		Context::set('use_rewrite', $useRewrite); 
 
+		// nginx 체크, rewrite 사용법 안내
+		if($useRewrite == 'N' && stripos($_SERVER['SERVER_SOFTWARE'], 'nginx') !== false) Context::set('use_nginx', 'Y');
+		
 		$this->setTemplateFile('check_env');
 	}
 

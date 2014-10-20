@@ -1,7 +1,8 @@
 <?php
+/* Copyright (C) NAVER <http://www.navercorp.com> */
 /**
  * Controller class of the file module
- * @author NHN (developers@xpressengine.com)
+ * @author NAVER (developers@xpressengine.com)
  */
 class fileController extends file
 {
@@ -30,7 +31,7 @@ class fileController extends file
 		if(!is_uploaded_file($file_info['tmp_name'])) exit();
 
 		// Basic variables setting
-		$oFileModel = &getModel('file');
+		$oFileModel = getModel('file');
 		$editor_sequence = Context::get('editor_sequence');
 		$upload_target_srl = intval(Context::get('uploadTargetSrl'));
 		if(!$upload_target_srl) $upload_target_srl = intval(Context::get('upload_target_srl'));
@@ -113,7 +114,7 @@ class fileController extends file
 
 		if(FileHandler::createImageFile($source_src,$output_src,$width,$height,'','ratio'))
 		{
-			$output->info = getimagesize($output_src);	
+			$output->info = getimagesize($output_src);
 			$output->src = $output_src;
 		}
 		else
@@ -121,7 +122,7 @@ class fileController extends file
 			return new Object(-1,'msg_invalid_request');
 		}
 
-		$this->add('resized_info',$output);		
+		$this->add('resized_info',$output);
 	}
 
 	/**
@@ -157,7 +158,9 @@ class fileController extends file
 	 */
 	function procFileDownload()
 	{
-		$oFileModel = &getModel('file');
+		$oFileModel = getModel('file');
+
+		if(isset($this->grant->access) && $this->grant->access !== true) return new Object(-1, 'msg_not_permitted');
 
 		$file_srl = Context::get('file_srl');
 		$sid = Context::get('sid');
@@ -279,7 +282,7 @@ class fileController extends file
 
 	public function procFileOutput()
 	{
-		$oFileModel = &getModel('file');
+		$oFileModel = getModel('file');
 		$file_srl = Context::get('file_srl');
 		$file_key = Context::get('file_key');
 		if(strstr($_SERVER['HTTP_USER_AGENT'], "Android")) $is_android = true;
@@ -292,16 +295,16 @@ class fileController extends file
 		$uploaded_filename = $file_obj->uploaded_filename;
 
 		if(!file_exists($uploaded_filename)) return $this->stop('msg_file_not_found');
-		
+
 		if(!$file_key || $_SESSION[$session_key][$file_srl] != $file_key)
 		{
 			unset($_SESSION[$session_key][$file_srl]);
 			return $this->stop('msg_invalid_request');
 		}
-		
+
 		$file_size = $file_obj->file_size;
 		$filename = $file_obj->source_filename;
-		if(strstr($_SERVER['HTTP_USER_AGENT'], "MSIE"))
+		if(strpos($_SERVER['HTTP_USER_AGENT'], 'MSIE') !== FALSE || (strpos($_SERVER['HTTP_USER_AGENT'], 'Windows') !== FALSE && strpos($_SERVER['HTTP_USER_AGENT'], 'Trident') !== FALSE && strpos($_SERVER['HTTP_USER_AGENT'], 'rv:') !== FALSE))
 		{
 			$filename = rawurlencode($filename);
 			$filename = preg_replace('/\./', '%2e', $filename, substr_count($filename, '.') - 1);
@@ -320,13 +323,13 @@ class fileController extends file
 		if(!$fp) return $this->stop('msg_file_not_found');
 
 		header("Cache-Control: ");
-		header("Pragma: "); 
-		header("Content-Type: application/octet-stream"); 
+		header("Pragma: ");
+		header("Content-Type: application/octet-stream");
 		header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
 
-		header("Content-Length: " .(string)($file_size)); 
+		header("Content-Length: " .(string)($file_size));
 		header('Content-Disposition: attachment; filename="'.$filename.'"');
-		header("Content-Transfer-Encoding: binary\n"); 
+		header("Content-Transfer-Encoding: binary\n");
 
 		// if file size is lager than 10MB, use fread function (#18675748)
 		if(filesize($uploaded_filename) > 1024 * 1024)
@@ -336,7 +339,7 @@ class fileController extends file
 		}
 		else
 		{
-			fpassthru($fp); 
+			fpassthru($fp);
 		}
 
 		exit();
@@ -360,7 +363,7 @@ class fileController extends file
 		$upload_target_srl = $_SESSION['upload_info'][$editor_sequence]->upload_target_srl;
 
 		$logged_info = Context::get('logged_info');
-		$oFileModel = &getModel('file');
+		$oFileModel = getModel('file');
 
 		$srls = explode(',',$file_srl);
 		if(!count($srls)) return;
@@ -370,7 +373,7 @@ class fileController extends file
 			$srl = (int)$srls[$i];
 			if(!$srl) continue;
 
-			$args = null;
+			$args = new stdClass;
 			$args->file_srl = $srl;
 			$output = executeQuery('file.getFile', $args);
 			if(!$output->toBool()) continue;
@@ -378,7 +381,7 @@ class fileController extends file
 			$file_info = $output->data;
 			if(!$file_info) continue;
 
-			$file_grant = $oFileModel->getFileGrant($file_info, $logged_info); 
+			$file_grant = $oFileModel->getFileGrant($file_info, $logged_info);
 
 			if(!$file_grant->is_deletable) continue;
 
@@ -400,7 +403,7 @@ class fileController extends file
 		global $lang;
 		if(count($fileSrlList) > 0)
 		{
-			$oFileModel = &getModel('file');
+			$oFileModel = getModel('file');
 			$fileList = $oFileModel->getFile($fileSrlList);
 			if(!is_array($fileList)) $fileList = array($fileList);
 
@@ -433,7 +436,7 @@ class fileController extends file
 		$document_srl = $obj->document_srl;
 		if(!$document_srl) return new Object();
 		// Get numbers of attachments
-		$oFileModel = &getModel('file');
+		$oFileModel = getModel('file');
 		$obj->uploaded_count = $oFileModel->getFilesCount($document_srl);
 
 		return new Object();
@@ -482,7 +485,7 @@ class fileController extends file
 		$comment_srl = $obj->comment_srl;
 		if(!$comment_srl) return new Object();
 		// Get numbers of attachments
-		$oFileModel = &getModel('file');
+		$oFileModel = getModel('file');
 		$obj->uploaded_count = $oFileModel->getFilesCount($comment_srl);
 
 		return new Object();
@@ -517,6 +520,8 @@ class fileController extends file
 		$comment_srl = $obj->comment_srl;
 		if(!$comment_srl) return new Object();
 
+		if($obj->isMoveToTrash) return new Object();
+
 		$output = $this->deleteFiles($comment_srl);
 		return $output;
 	}
@@ -532,7 +537,7 @@ class fileController extends file
 		$module_srl = $obj->module_srl;
 		if(!$module_srl) return new Object();
 
-		$oFileController = &getAdminController('file');
+		$oFileController = getAdminController('file');
 		return $oFileController->deleteModuleFiles($module_srl);
 	}
 
@@ -554,7 +559,7 @@ class fileController extends file
 	}
 
 	/**
-	 * Set the attachements of the upload_target_srl to be valid 
+	 * Set the attachements of the upload_target_srl to be valid
 	 * By changing its state to valid when a document is inserted, it prevents from being considered as a unnecessary file
 	 *
 	 * @param int $upload_target_srl
@@ -601,6 +606,7 @@ class fileController extends file
 	function insertFile($file_info, $module_srl, $upload_target_srl, $download_count = 0, $manual_insert = false)
 	{
 		// Call a trigger (before)
+		$trigger_obj = new stdClass;
 		$trigger_obj->module_srl = $module_srl;
 		$trigger_obj->upload_target_srl = $upload_target_srl;
 		$output = ModuleHandler::triggerCall('file.insertFile', 'before', $trigger_obj);
@@ -618,13 +624,14 @@ class fileController extends file
 			$logged_info = Context::get('logged_info');
 			if($logged_info->is_admin != 'Y')
 			{
-				$oFileModel = &getModel('file');
+				$oFileModel = getModel('file');
 				$config = $oFileModel->getFileConfig($module_srl);
 				$allowed_filesize = $config->allowed_filesize * 1024 * 1024;
 				$allowed_attach_size = $config->allowed_attach_size * 1024 * 1024;
 				// An error appears if file size exceeds a limit
 				if($allowed_filesize < filesize($file_info['tmp_name'])) return new Object(-1, 'msg_exceeds_limit_size');
 				// Get total file size of all attachements (from DB)
+				$size_args = new stdClass;
 				$size_args->upload_target_srl = $upload_target_srl;
 				$output = executeQuery('file.getAttachedFileSize', $size_args);
 				$attached_size = (int)$output->data->attached_size + filesize($file_info['tmp_name']);
@@ -636,7 +643,7 @@ class fileController extends file
 		if(preg_match("/\.(jpe?g|gif|png|wm[va]|mpe?g|avi|swf|flv|mp[1-4]|as[fx]|wav|midi?|moo?v|qt|r[am]{1,2}|m4v)$/i", $file_info['name']))
 		{
 			// Immediately remove the direct file if it has any kind of extensions for hacking
-			$file_info['name'] = preg_replace('/\.(php|phtm|html?|cgi|pl|exe|jsp|asp|inc)/i', '$0-x',$file_info['name']);
+			$file_info['name'] = preg_replace('/\.(php|phtm|phar|html?|cgi|pl|exe|jsp|asp|inc)/i', '$0-x',$file_info['name']);
 			$file_info['name'] = str_replace(array('<','>'),array('%3C','%3E'),$file_info['name']);
 
 			$path = sprintf("./files/attach/images/%s/%s", $module_srl,getNumberingPath($upload_target_srl,3));
@@ -663,6 +670,10 @@ class fileController extends file
 		}
 		// Create a directory
 		if(!FileHandler::makeDir($path)) return new Object(-1,'msg_not_permitted_create');
+
+		// Check uploaded file
+		if(!checkUploadedFile($file_info['tmp_name']))  return new Object(-1,'msg_file_upload_error');
+
 		// Move the file
 		if($manual_insert)
 		{
@@ -682,9 +693,10 @@ class fileController extends file
 			}
 		}
 		// Get member information
-		$oMemberModel = &getModel('member');
+		$oMemberModel = getModel('member');
 		$member_srl = $oMemberModel->getLoggedMemberSrl();
 		// List file information
+		$args = new stdClass;
 		$args->file_srl = getNextSequence();
 		$args->upload_target_srl = $upload_target_srl;
 		$args->module_srl = $module_srl;
@@ -749,14 +761,15 @@ class fileController extends file
 		$srls = explode(',',$file_srl);
 		if(!count($srls)) return;
 
-		$oDocumentController = &getController('document');
+		$oDocumentController = getController('document');
 		$documentSrlList = array();
-		for($i=0;$i<count($srls);$i++)
+
+		for($i=0, $c=count($srls); $i<$c; $i++)
 		{
 			$srl = (int)$srls[$i];
 			if(!$srl) continue;
 
-			$args = null;
+			$args = new stdClass;
 			$args->file_srl = $srl;
 			$output = executeQuery('file.getFile', $args);
 
@@ -767,21 +780,25 @@ class fileController extends file
 
 			if($file_info->upload_target_srl)
 			{
-				array_push($documentSrlList, $file_info->upload_target_srl);
+				$documentSrlList[] = $file_info->upload_target_srl;
 			}
 
 			$source_filename = $output->data->source_filename;
 			$uploaded_filename = $output->data->uploaded_filename;
+
 			// Call a trigger (before)
 			$trigger_obj = $output->data;
 			$output = ModuleHandler::triggerCall('file.deleteFile', 'before', $trigger_obj);
 			if(!$output->toBool()) return $output;
+
 			// Remove from the DB
 			$output = executeQuery('file.deleteFile', $args);
 			if(!$output->toBool()) return $output;
+
 			// Call a trigger (after)
 			$trigger_output = ModuleHandler::triggerCall('file.deleteFile', 'after', $trigger_obj);
 			if(!$trigger_output->toBool()) return $trigger_output;
+
 			// If successfully deleted, remove the file
 			FileHandler::removeFile($uploaded_filename);
 		}
@@ -800,30 +817,34 @@ class fileController extends file
 	function deleteFiles($upload_target_srl)
 	{
 		// Get a list of attachements
-		$oFileModel = &getModel('file');
-		$columnList = array('uploaded_filename', 'module_srl');
+		$oFileModel = getModel('file');
+		$columnList = array('file_srl', 'uploaded_filename', 'module_srl');
 		$file_list = $oFileModel->getFiles($upload_target_srl, $columnList);
 		// Success returned if no attachement exists
 		if(!is_array($file_list)||!count($file_list)) return new Object();
+
 		// Remove from the DB
 		$args = new stdClass();
 		$args->upload_target_srl = $upload_target_srl;
 		$output = executeQuery('file.deleteFiles', $args);
 		if(!$output->toBool()) return $output;
+
 		// Delete the file
 		$path = array();
 		$file_count = count($file_list);
 		for($i=0;$i<$file_count;$i++)
 		{
-			$uploaded_filename = $file_list[$i]->uploaded_filename;
-			FileHandler::removeFile($uploaded_filename);
-			$module_srl = $file_list[$i]->module_srl;
+			$this->deleteFile($file_list[$i]->file_srl);
 
+			$uploaded_filename = $file_list[$i]->uploaded_filename;
 			$path_info = pathinfo($uploaded_filename);
 			if(!in_array($path_info['dirname'], $path)) $path[] = $path_info['dirname'];
 		}
 		// Remove a file directory of the document
-		for($i=0;$i<count($path);$i++) FileHandler::removeBlankDir($path[$i]);
+		for($i=0, $c=count($path); $i<$c; $i++)
+		{
+			FileHandler::removeBlankDir($path[$i]);
+		}
 
 		return $output;
 	}
@@ -840,7 +861,7 @@ class fileController extends file
 	{
 		if($source_srl == $target_srl) return;
 
-		$oFileModel = &getModel('file');
+		$oFileModel = getModel('file');
 		$file_list = $oFileModel->getFiles($source_srl);
 		if(!$file_list) return;
 
@@ -869,7 +890,7 @@ class fileController extends file
 			// Move the file
 			FileHandler::rename($old_file, $new_file);
 			// Update DB information
-			unset($args);
+			$args = new stdClass;
 			$args->file_srl = $file_info->file_srl;
 			$args->uploaded_filename = $new_file;
 			$args->module_srl = $file_info->module_srl;
@@ -893,10 +914,10 @@ class fileController extends file
 
 	function triggerCopyModule(&$obj)
 	{
-		$oModuleModel = &getModel('module');
+		$oModuleModel = getModel('module');
 		$fileConfig = $oModuleModel->getModulePartConfig('file', $obj->originModuleSrl);
 
-		$oModuleController = &getController('module');
+		$oModuleController = getController('module');
 		if(is_array($obj->moduleSrlList))
 		{
 			foreach($obj->moduleSrlList AS $key=>$moduleSrl)

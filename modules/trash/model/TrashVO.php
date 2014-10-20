@@ -6,6 +6,7 @@ class TrashVO
 	var $title;
 	var $originModule;
 	var $serializedObject;
+	var $unserializedObject;
 	var $description;
 	var $ipaddress;
 	var $removerSrl;
@@ -24,7 +25,7 @@ class TrashVO
 	function getTitle()
 	{
 		if(empty($this->title)) return $lang->untitle;
-		return htmlspecialchars($this->title);
+		return htmlspecialchars($this->title, ENT_COMPAT | ENT_HTML401, 'UTF-8', false);
 	}
 	function setTitle($title)
 	{
@@ -47,9 +48,17 @@ class TrashVO
 	{
 		$this->serializedObject = $serializedObject;
 	}
+	function getUnserializedObject()
+	{
+		return $this->unserializedObject;
+	}
+	function setUnserializedObject($serializedObject)
+	{
+		$this->unserializedObject = unserialize($serializedObject);
+	}
 	function getDescription()
 	{
-		return htmlspecialchars($this->description);
+		return htmlspecialchars($this->description, ENT_COMPAT | ENT_HTML401, 'UTF-8', false);
 	}
 	function setDescription($description)
 	{
@@ -81,7 +90,7 @@ class TrashVO
 	}
 	function getNickName()
 	{
-		return htmlspecialchars($this->nickName);
+		return htmlspecialchars($this->nickName, ENT_COMPAT | ENT_HTML401, 'UTF-8', false);
 	}
 	function setNickName($nickName)
 	{

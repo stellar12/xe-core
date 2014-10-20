@@ -1,10 +1,11 @@
 <?php
+/* Copyright (C) NAVER <http://www.navercorp.com> */
 
 /**
  * commentController class
  * controller class of the comment module
  *
- * @author NHN (developers@xpressengine.com)
+ * @author NAVER (developers@xpressengine.com)
  * @package /modules/comment
  * @version 0.1
  */
@@ -185,6 +186,11 @@ class commentController extends comment
 	 */
 	function insertComment($obj, $manual_inserted = FALSE)
 	{
+		if(!$manual_inserted && !checkCSRF())
+		{
+			return new Object(-1, 'msg_invalid_request');
+		}
+
 		if(!is_object($obj))
 		{
 			$obj = new stdClass();
@@ -260,9 +266,13 @@ class commentController extends comment
 				return new Object(-1, 'msg_invalid_request');
 			}
 
-			if($obj->homepage && !preg_match('/^[a-z]+:\/\//i', $obj->homepage))
+			if($obj->homepage)
 			{
-				$obj->homepage = 'http://' . $obj->homepage;
+				$obj->homepage = removeHackTag($obj->homepage);
+				if(!preg_match('/^[a-z]+:\/\//i',$obj->homepage))
+				{
+					$obj->homepage = 'http://'.$obj->homepage;
+				}
 			}
 
 			// input the member's information if logged-in
@@ -290,6 +300,10 @@ class commentController extends comment
 		{
 			$obj->comment_srl = getNextSequence();
 		}
+		elseif(!$is_admin && !$manual_inserted && !checkUserSequence($obj->comment_srl)) 
+		{
+			return new Object(-1, 'msg_not_permitted');
+		}
 
 		// determine the order
 		$obj->list_order = getNextSequence() * -1;
@@ -301,7 +315,7 @@ class commentController extends comment
 		{
 			if($obj->use_html != 'Y')
 			{
-				$obj->content = htmlspecialchars($obj->content);
+				$obj->content = htmlspecialchars($obj->content, ENT_COMPAT | ENT_HTML401, 'UTF-8', false);
 			}
 			$obj->content = nl2br($obj->content);
 		}
@@ -463,16 +477,6 @@ class commentController extends comment
 
 		$output->add('comment_srl', $obj->comment_srl);
 
-		//remove from cache
-		$oCacheHandler = CacheHandler::getInstance('object');
-		if($oCacheHandler->isSupport())
-		{
-			$oCacheHandler->invalidateGroupKey('commentList_' . $document_srl);
-			$oCacheHandler->invalidateGroupKey('newestCommentsList');
-
-			$oCacheHandler->delete('object:' . $document_srl);
-		}
-
 		return $output;
 	}
 
@@ -516,18 +520,22 @@ class commentController extends comment
 			$oMail->setSender($obj->email_address, $obj->email_address);
 			$mail_title = "[XE - " . Context::get('mid') . "] A new comment was posted on document: \"" . $oDocument->getTitleText() . "\"";
 			$oMail->setTitle($mail_title);
+			$url_comment = getFullUrl('','document_srl',$obj->document_srl).'#comment_'.$obj->comment_srl;
 			if($using_validation)
 			{
-				$url_approve = getFullUrl('', 'module', 'comment', 'act', 'procCommentAdminChangePublishedStatusChecked', 'cart[]', $obj->comment_srl, 'will_publish', '1', 'search_target', 'is_published', 'search_keyword', 'N');
-				$url_trash = getFullUrl('', 'module', 'comment', 'act', 'procCommentAdminDeleteChecked', 'cart[]', $obj->comment_srl, 'search_target', 'is_trash', 'search_keyword', 'true');
+				$url_approve = getFullUrl('', 'module', 'admin', 'act', 'procCommentAdminChangePublishedStatusChecked', 'cart[]', $obj->comment_srl, 'will_publish', '1', 'search_target', 'is_published', 'search_keyword', 'N');
+				$url_trash = getFullUrl('', 'module', 'admin', 'act', 'procCommentAdminDeleteChecked', 'cart[]', $obj->comment_srl, 'search_target', 'is_trash', 'search_keyword', 'true');
 				$mail_content = "
 					A new comment on the document \"" . $oDocument->getTitleText() . "\" is waiting for your approval.
 					<br />
 					<br />
 					Author: " . $member_info->nick_name . "
 					<br />Author e-mail: " . $member_info->email_address . "
+					<br />From : <a href=\"" . $url_comment . "\">" . $url_comment . "</a>
 					<br />Comment:
 					<br />\"" . $obj->content . "\"
+					<br />Document:
+					<br />\"" . $oDocument->getContentText(). "\"
 					<br />
 					<br />
 					Approve it: <a href=\"" . $url_approve . "\">" . $url_approve . "</a>
@@ -542,8 +550,11 @@ class commentController extends comment
 				$mail_content = "
 					Author: " . $member_info->nick_name . "
 					<br />Author e-mail: " . $member_info->email_address . "
+					<br />From : <a href=\"" . $url_comment . "\">" . $url_comment . "</a>
 					<br />Comment:
 					<br />\"" . $obj->content . "\"
+					<br />Document:
+					<br />\"" . $oDocument->getContentText(). "\"
 					";
 				$oMail->setContent($mail_content);
 
@@ -554,11 +565,16 @@ class commentController extends comment
 				$logged_info = Context::get('logged_info');
 
 				//mail to author of thread - START
+				/**
+				 * @todo Removed code send email to document author.
+				*/
+				/*
 				if($document_author_email != $obj->email_address && $logged_info->email_address != $document_author_email)
 				{
 					$oMail->setReceiptor($document_author_email, $document_author_email);
 					$oMail->send();
 				}
+				*/
 				// mail to author of thread - STOP
 			}
 
@@ -654,9 +670,13 @@ class commentController extends comment
 			$obj->password = md5($obj->password);
 		}
 
-		if($obj->homepage && !preg_match('/^[a-z]+:\/\//i', $obj->homepage))
+		if($obj->homepage) 
 		{
-			$obj->homepage = 'http://' . $obj->homepage;
+			$obj->homepage = removeHackTag($obj->homepage);
+			if(!preg_match('/^[a-z]+:\/\//i',$obj->homepage))
+			{
+				$obj->homepage = 'http://'.$obj->homepage;
+			}
 		}
 
 		// set modifier's information if logged-in and posting author and modifier are matched.
@@ -725,14 +745,6 @@ class commentController extends comment
 
 		$output->add('comment_srl', $obj->comment_srl);
 
-		//remove from cache
-		$oCacheHandler = CacheHandler::getInstance('object');
-		if($oCacheHandler->isSupport())
-		{
-			$oCacheHandler->invalidateGroupKey('commentList_' . $obj->document_srl);
-			$oCacheHandler->invalidateGroupKey('newestCommentsList');
-		}
-		
 		return $output;
 	}
 
@@ -842,34 +854,33 @@ class commentController extends comment
 		// call a trigger (after)
 		if($output->toBool())
 		{
+			$comment->isMoveToTrash = $isMoveToTrash;
 			$trigger_output = ModuleHandler::triggerCall('comment.deleteComment', 'after', $comment);
 			if(!$trigger_output->toBool())
 			{
 				$oDB->rollback();
 				return $trigger_output;
 			}
+			unset($comment->isMoveToTrash);
 		}
 
 		if(!$isMoveToTrash)
 		{
 			$this->_deleteDeclaredComments($args);
 			$this->_deleteVotedComments($args);
+		} 
+		else 
+		{
+			$args = new stdClass();
+			$args->upload_target_srl = $comment_srl;
+			$args->isvalid = 'N';
+			$output = executeQuery('file.updateFileValid', $args);
 		}
 
 		// commit
 		$oDB->commit();
 
 		$output->add('document_srl', $document_srl);
-
-		//remove from cache
-		$oCacheHandler = CacheHandler::getInstance('object');
-		if($oCacheHandler->isSupport())
-		{
-			$oCacheHandler->invalidateGroupKey('commentList_' . $document_srl);
-			$oCacheHandler->invalidateGroupKey('newestCommentsList');
-
-			$oCacheHandler->delete('object:' . $document_srl);
-		}
 
 		return $output;
 	}
@@ -919,9 +930,9 @@ class commentController extends comment
 		if($comments->data)
 		{
 			$commentSrlList = array();
-			foreach($comments->data as $key => $comment)
+			foreach($comments->data as $comment)
 			{
-				array_push($commentSrlList, $comment->comment_srl);
+				$commentSrlList[] = $comment->comment_srl;
 
 				// call a trigger (before)
 				$output = ModuleHandler::triggerCall('comment.deleteComment', 'before', $comment);
@@ -957,14 +968,6 @@ class commentController extends comment
 			$args->comment_srl = join(',', $commentSrlList);
 			$this->_deleteDeclaredComments($args);
 			$this->_deleteVotedComments($args);
-		}
-
-		//remove from cache
-		$oCacheHandler = CacheHandler::getInstance('object');
-		if($oCacheHandler->isSupport())
-		{
-			$oCacheHandler->invalidateGroupKey('commentList_' . $document_srl);
-			$oCacheHandler->invalidateGroupKey('newestCommentsList');
 		}
 
 		return $output;
@@ -1104,7 +1107,17 @@ class commentController extends comment
 		$_SESSION['voted_comment'][$comment_srl] = TRUE;
 
 		// Return the result
-		return new Object(0, $success_message);
+		$output = new Object(0, $success_message);
+		if($point > 0)
+		{
+			$output->add('voted_count', $obj->after_point);
+		}
+		else
+		{
+			$output->add('blamed_count', $obj->after_point);
+		}
+
+		return $output;
 	}
 
 	/**
@@ -1127,6 +1140,18 @@ class commentController extends comment
 		if(!$output->toBool())
 		{
 			return $output;
+		}
+		$declared_count = ($output->data->declared_count) ? $output->data->declared_count : 0;
+
+		$trigger_obj = new stdClass();
+		$trigger_obj->comment_srl = $comment_srl;
+		$trigger_obj->declared_count = $declared_count;
+
+		// Call a trigger (before)
+		$trigger_output = ModuleHandler::triggerCall('comment.declaredComment', 'before', $trigger_obj);
+		if(!$trigger_output->toBool())
+		{
+			return $trigger_output;
 		}
 
 		// get the original comment
@@ -1174,6 +1199,10 @@ class commentController extends comment
 			return new Object(-1, 'failed_declared');
 		}
 
+		// begin transaction
+		$oDB = &DB::getInstance();
+		$oDB->begin();
+
 		// execute insert
 		if($output->data->declared_count > 0)
 		{
@@ -1186,11 +1215,23 @@ class commentController extends comment
 
 		if(!$output->toBool())
 		{
+			$oDB->rollback();
 			return $output;
 		}
 
 		// leave the log
 		$output = executeQuery('comment.insertCommentDeclaredLog', $args);
+
+		// Call a trigger (after)
+		$trigger_obj->declared_count = $declared_count + 1;
+		$trigger_output = ModuleHandler::triggerCall('comment.declaredComment', 'after', $trigger_obj);
+		if(!$trigger_output->toBool())
+		{
+			$oDB->rollback();
+			return $trigger_output;
+		}
+
+		$oDB->commit();
 
 		// leave into the session information
 		$_SESSION['declared_comment'][$comment_srl] = TRUE;
@@ -1308,7 +1349,6 @@ class commentController extends comment
 		}
 
 		$commentSrls = Context::get('comment_srls');
-
 		if($commentSrls)
 		{
 			$commentSrlList = explode(',', $commentSrls);
@@ -1321,7 +1361,7 @@ class commentController extends comment
 
 			if(is_array($commentList))
 			{
-				foreach($commentList AS $key => $value)
+				foreach($commentList as $value)
 				{
 					$value->content = strip_tags($value->content);
 				}
@@ -1348,7 +1388,7 @@ class commentController extends comment
 		$oModuleController = getController('module');
 		if(is_array($obj->moduleSrlList))
 		{
-			foreach($obj->moduleSrlList AS $key => $moduleSrl)
+			foreach($obj->moduleSrlList as $moduleSrl)
 			{
 				$oModuleController->insertModulePartConfig('comment', $moduleSrl, $commentConfig);
 			}

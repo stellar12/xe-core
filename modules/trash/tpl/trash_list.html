@@ -2,7 +2,7 @@
 var confirm_restore_msg = '{$lang->confirm_restore}';
 var no_text_comment = '{$lang->no_text_comment}';
 </script>
-<load target="js/trash_admin.js" usecdn="true" />
+<load target="js/trash_admin.js" />
 <div class="x_page-header">
 	<h1>{$lang->trash} <a class="x_icon-question-sign" href="./admin/help/index.html#UMAN_content_trash" target="_blank">{$lang->help}</a></h1>
 </div>
@@ -41,7 +41,12 @@ var no_text_comment = '{$lang->no_text_comment}';
 			<tr loop="$trash_list => $no, $oTrashVO">
 				<td class="title">
 					<strong cond="!trim($oTrashVO->getTitle()) && $oTrashVO->getOriginModule() == 'comment'">{$lang->no_text_comment}</strong>
-					<block cond="trim($oTrashVO->getTitle())">{$oTrashVO->getTitle()}</block>
+					<block cond="trim($oTrashVO->getTitle())">
+						<block cond="isset($module_list[$oTrashVO->unserializedObject['module_srl']])">
+						<a href="{getUrl('', 'mid', $module_list[$oTrashVO->unserializedObject['module_srl']]->mid)}" target="_blank">{$module_list[$oTrashVO->unserializedObject['module_srl']]->browser_title}</a> - 
+						</block>
+						<a href="{getUrl('act','dispTrashAdminView','trash_srl',$oTrashVO->getTrashSrl())}">{$oTrashVO->getTitle()}</a>
+					</block>
 				</td>
 				<td class="nowr"><!--@if($oTrashVO->getOriginModule() == 'document')-->{$lang->document}<!--@else-->{$lang->comment}<!--@end--></td>
 				<td class="nowr"><a href="#popup_menu_area" class="member_{$oTrashVO->getRemoverSrl()}">{$oTrashVO->getNickName()}</a></td>

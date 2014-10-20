@@ -1,9 +1,10 @@
 <?php
+/* Copyright (C) NAVER <http://www.navercorp.com> */
 /**
  * documentAdminView class
  * Document admin view of the module class
  *
- * @author NHN (developers@xpressengine.com)
+ * @author NAVER (developers@xpressengine.com)
  * @package /modules/document
  * @version 0.1
  */
@@ -16,7 +17,7 @@ class documentAdminView extends document
 	function init()
 	{
 		// check current location in admin menu
-		$oModuleModel = &getModel('module');
+		$oModuleModel = getModel('module');
 		$info = $oModuleModel->getModuleActionXml('document');
 		foreach($info->menu AS $key => $menu)
 		{
@@ -48,8 +49,8 @@ class documentAdminView extends document
 		$args->module_srl = Context::get('module_srl');
 
 		// get a list
-		$oDocumentModel = &getModel('document');
-		$columnList = array('document_srl', 'title', 'member_srl', 'nick_name', 'readed_count', 'voted_count', 'blamed_count', 'regdate', 'ipaddress', 'status');
+		$oDocumentModel = getModel('document');
+		$columnList = array('document_srl', 'module_srl', 'title', 'member_srl', 'nick_name', 'readed_count', 'voted_count', 'blamed_count', 'regdate', 'ipaddress', 'status');
 		$output = $oDocumentModel->getDocumentList($args, false, true, $columnList);
 
 		// get Status name list
@@ -71,6 +72,30 @@ class documentAdminView extends document
 		}
 		Context::set('search_option', $search_option);
 
+		$oModuleModel = getModel('module');
+		$module_list = array();
+		$mod_srls = array();
+		foreach($output->data as $oDocument)
+		{
+			$mod_srls[] = $oDocument->get('module_srl');
+		}
+		$mod_srls = array_unique($mod_srls);
+		// Module List
+		$mod_srls_count = count($mod_srls);
+		if($mod_srls_count)
+		{
+			$columnList = array('module_srl', 'mid', 'browser_title');
+			$module_output = $oModuleModel->getModulesInfo($mod_srls, $columnList);
+			if($module_output && is_array($module_output))
+			{
+				foreach($module_output as $module)
+				{
+					$module_list[$module->module_srl] = $module;
+				}
+			}
+		}
+		Context::set('module_list', $module_list);
+
 		// Specify a template
 		$this->setTemplatePath($this->module_path.'tpl');
 		$this->setTemplateFile('document_list');
@@ -82,7 +107,7 @@ class documentAdminView extends document
 	 */
 	function dispDocumentAdminConfig()
 	{
-		$oDocumentModel = &getModel('document');
+		$oDocumentModel = getModel('document');
 		$config = $oDocumentModel->getDocumentConfig();
 		Context::set('config',$config);
 
@@ -107,7 +132,7 @@ class documentAdminView extends document
 		$args->order_type = 'desc'; // /< sorting values by order
 
 		// get Status name list
-		$oDocumentModel = &getModel('document');
+		$oDocumentModel = getModel('document');
 		$statusNameList = $oDocumentModel->getStatusNameList();
 
 		// get a list
@@ -145,7 +170,7 @@ class documentAdminView extends document
 		$args->document_srl = Context::get('document_srl');
 		if(!$args->document_srl) return $this->dispDocumentAdminList();
 
-		$oModel = &getModel('document');
+		$oModel = getModel('document');
 		$oDocument = $oModel->getDocument($args->document_srl);
 		if(!$oDocument->isExists()) return $this->dispDocumentAdminList();
 		Context::set('oDocument', $oDocument);
@@ -183,7 +208,7 @@ class documentAdminView extends document
 		$args->module_srl = Context::get('module_srl');
 
 		// get a list
-		$oDocumentAdminModel = &getAdminModel('document');
+		$oDocumentAdminModel = getAdminModel('document');
 		$output = $oDocumentAdminModel->getDocumentTrashList($args);
 
 		// Set values of document_admin_model::getDocumentTrashList() objects for a template
